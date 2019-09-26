@@ -39,6 +39,10 @@ Run the simulation with default parameters
 ```python simulation.py```
 
 
+3D Simulation takes a bit of playing around with the settings since it will die off quite quickly. Here's an example setting:
+
+```python simulate.py --simulation 3D --dim 35 --population 25```
+
 
  ## 2D version
 

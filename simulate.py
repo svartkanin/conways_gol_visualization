@@ -32,11 +32,13 @@ class Simulation():
                 win_width, win_height, field_dim, population, rules
             )
             self._rotate = False
+            self._clock_tick = 10
         else:
             self._universe = Universe_3D(
                 win_width, win_height, field_dim, population, rules
             )
             self._rotate = True
+            self._clock_tick = 100
 
         self._universe.init_universe()
 
@@ -52,7 +54,9 @@ class Simulation():
 
             self._universe.calculate_new_generation()
 
-            self._clock.tick(10)
+            # the 3D simulation dies off quite quickly so
+            # lets wait a bit longer there
+            self._clock.tick(self._clock_tick)
             self._screen.fill(Color.DARKGREY.value)
 
             self._universe.transform_vectors(self._rotation_angle)
