@@ -14,8 +14,8 @@ class Cell():
         """
         self._vectors = vectors
         self._camera_angle = initial_angle
-        self._screen_width = screen_width
-        self._screen_height = screen_height
+        self._win_width = screen_width
+        self._win_height = screen_height
 
         self._transformed_vectors = None
         self._avg_z = None
@@ -144,14 +144,17 @@ class Cell():
 
 
 class AbstractUniverse():
-    def __init__(self, win_width, win_height, field_dim, cell_dim, population):
+    def __init__(
+        self, win_width, win_height, field_dim, cell_dim, population, rules
+    ):
         """
         Args:
             win_width (int): Window screen width
             win_height (int): Window screen height
             field_dim (int): Dimension of the universe
             cell_dim (int): Dimension of one cell
-            population (int): Initial population of the universe in %
+            population (int): Initial population of the universe in percent
+            rules (str): Ruleslist to apply for the cells' faith
         """
         self._win_width = win_width
         self._win_height = win_height
@@ -162,6 +165,7 @@ class AbstractUniverse():
         self._cells = []
 
         self._population = population
+        self._rules = rules
 
     def init_universe(self):
         """
@@ -260,9 +264,43 @@ class AbstractUniverse():
 
                 self._cells.append(cell)
 
+    def calculate_new_generation(self):
+        """
+        Calculate a new generation of the universe
+        """
+        def _cell_faith(pos):
+            neighbours = self._determine_cell_neighbours(pos)
+
+            alive_neighbours = sum(
+                self._universe[neighbour]
+                for neighbour in neighbours if neighbour in self._universe
+            )
+            """
+            Rules for a cell in a next generation (default 2333 rule):
+                1. If the cell is curently dead:
+                    - It will become alive when it has between 3 and 3 neighbours
+                2. If the cell is currently alive:
+                    - It will stay alive if has 2 (no starvation) or 3 (no overfitting) neighbours
+
+            For the 3D universe the rules 2333 are changed to 5766 as a default
+            """
+            if self._universe[pos] == 0:  # birth
+                if alive_neighbours in (self._rules[2], self._rules[3]):
+                    return 1
+            else:  # survive or dead
+                if alive_neighbours in (self._rules[0], self._rules[1]):
+                    return 1
+            return 0
+
+        self._universe = {
+            pos: _cell_faith(pos)
+            for pos in self._universe.keys()
+        }
+        self._create_cells()
+
 
 class Universe_2D(AbstractUniverse):
-    def __init__(self, win_width, win_height, field_dim, population):
+    def __init__(self, win_width, win_height, field_dim, population, rules):
         """
         Create a 2D univerrse
         
@@ -274,7 +312,9 @@ class Universe_2D(AbstractUniverse):
         """
         cell_dim = 0.5
 
-        super().__init__(win_width, win_height, field_dim, cell_dim, population)
+        super().__init__(
+            win_width, win_height, field_dim, cell_dim, population, rules
+        )
 
         self._camera_angle = {'x': -90, 'y': 0, 'z': 0}
 
@@ -284,13 +324,8 @@ class Universe_2D(AbstractUniverse):
             for i in range(self._field_dim) for j in range(self._field_dim)
         }
 
-    def calculate_new_generation(self):
+    def _determine_cell_neighbours(self, pos):
         """
-        Calculate a new generation of the universe
-        """
-
-        def new_cell_status(pos):
-            """
             Determine if the cell is going to be alive or dead
             in the next generation
             
@@ -300,38 +335,17 @@ class Universe_2D(AbstractUniverse):
             Returns:
                 int: 1 if the cell is going to be alive, otherwise 0
             """
-            x = pos[0]
-            y = pos[1]
+        x = pos[0]
+        y = pos[1]
 
-            neighbours = [
-                (x + 1, y), (x + 1, y + 1), (x, y + 1), (x - 1, y + 1),
-                (x - 1, y), (x - 1, y - 1), (x, y - 1), (x + 1, y - 1)
-            ]
-
-            alive_neighbours = sum(
-                self._universe[neighbour]
-                for neighbour in neighbours if neighbour in self._universe
-            )
-
-            if self._universe[pos] == 0:  # birth
-                if alive_neighbours == 3:
-                    return 1
-            else:  # survive or dead
-                if alive_neighbours in (2, 3):
-                    return 1
-            return 0
-
-        new_gen = {}
-        for pos in self._universe.keys():
-            new_gen[pos] = new_cell_status(pos)
-
-        self._universe = new_gen
-
-        self._create_cells()
+        return [
+            (x + 1, y), (x + 1, y + 1), (x, y + 1), (x - 1, y + 1), (x - 1, y),
+            (x - 1, y - 1), (x, y - 1), (x + 1, y - 1)
+        ]
 
 
 class Universe_3D(AbstractUniverse):
-    def __init__(self, win_width, win_height, field_dim, population):
+    def __init__(self, win_width, win_height, field_dim, population, rules):
         """
         Create a 3D univerrse
         
@@ -339,11 +353,14 @@ class Universe_3D(AbstractUniverse):
             win_width (int): Window screen width
             win_height (int): Window screen height
             field_dim (int): Dimension of the universe
-            population (int): Initial population of the universe in %
+            population (int): Initial population of the universe in percent
+            rules (str): Ruleslist to apply for the cells' faith
         """
-        cell_dim = 0.3
+        cell_dim = 0.15
 
-        super().__init__(win_width, win_height, field_dim, cell_dim, population)
+        super().__init__(
+            win_width, win_height, field_dim, cell_dim, population, rules
+        )
 
         self._camera_angle = {'x': 0, 'y': 0, 'z': 0}
 
@@ -354,13 +371,8 @@ class Universe_3D(AbstractUniverse):
             for k in range(self._field_dim)
         }
 
-    def calculate_new_generation(self):
+    def _determine_cell_neighbours(self, pos):
         """
-        Calculate a new generation of the universe
-        """
-
-        def new_cell_status(pos):
-            """
             Determine if the cell is going to be alive or dead
             in the next generation
             
@@ -370,40 +382,18 @@ class Universe_3D(AbstractUniverse):
             Returns:
                 int: 1 if the cell is going to be alive, otherwise 0
             """
-            x = pos[0]
-            y = pos[1]
-            z = pos[2]
+        x = pos[0]
+        y = pos[1]
+        z = pos[2]
 
-            # the 26 neighbours of the cell
-            neighbours = [
-                (x + 1, y, z), (x + 1, y + 1, z), (x, y + 1, z),
-                (x - 1, y + 1, z), (x - 1, y, z), (x - 1, y - 1, z),
-                (x, y - 1, z), (x + 1, y - 1, z), (x + 1, y, z + 1),
-                (x + 1, y + 1, z + 1), (x, y + 1, z + 1), (x - 1, y + 1, z + 1),
-                (x - 1, y, z + 1), (x - 1, y - 1, z + 1), (x, y - 1, z + 1),
-                (x + 1, y - 1, z + 1), (x + 1, y, z - 1), (x + 1, y + 1, z - 1),
-                (x, y + 1, z - 1), (x - 1, y + 1, z - 1), (x - 1, y, z - 1),
-                (x - 1, y - 1, z - 1), (x, y - 1, z - 1), (x + 1, y - 1, z - 1),
-                (x, y, z + 1), (x, y, z - 1)
-            ]
-
-            alive_neighbours = sum(
-                self._universe[neighbour]
-                for neighbour in neighbours if neighbour in self._universe
-            )
-
-            if self._universe[pos] == 0:  # birth
-                if alive_neighbours == 4:
-                    return 1
-            else:  # survive or dead
-                if alive_neighbours in (3, 4):
-                    return 1
-            return 0
-
-        new_gen = {}
-        for pos in self._universe.keys():
-            new_gen[pos] = new_cell_status(pos)
-
-        self._universe = new_gen
-
-        self._create_cells()
+        # the 26 neighbours of the cell
+        return [
+            (x + 1, y, z), (x + 1, y + 1, z), (x, y + 1, z), (x - 1, y + 1, z),
+            (x - 1, y, z), (x - 1, y - 1, z), (x, y - 1, z), (x + 1, y - 1, z),
+            (x + 1, y, z + 1), (x + 1, y + 1, z + 1), (x, y + 1, z + 1),
+            (x - 1, y + 1, z + 1), (x - 1, y, z + 1), (x - 1, y - 1, z + 1),
+            (x, y - 1, z + 1), (x + 1, y - 1, z + 1), (x + 1, y, z - 1),
+            (x + 1, y + 1, z - 1), (x, y + 1, z - 1), (x - 1, y + 1, z - 1),
+            (x - 1, y, z - 1), (x - 1, y - 1, z - 1), (x, y - 1, z - 1),
+            (x + 1, y - 1, z - 1), (x, y, z + 1), (x, y, z - 1)
+        ]

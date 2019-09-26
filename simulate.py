@@ -7,7 +7,9 @@ from src.colors import Color
 
 
 class Simulation():
-    def __init__(self, sim_type, win_width, win_height, field_dim, population):
+    def __init__(
+        self, sim_type, win_width, win_height, field_dim, population, rules
+    ):
         """
         Create a new GOL simulation
         
@@ -27,12 +29,12 @@ class Simulation():
 
         if sim_type == '2D':
             self._universe = Universe_2D(
-                win_width, win_height, field_dim, population
+                win_width, win_height, field_dim, population, rules
             )
             self._rotate = False
         else:
             self._universe = Universe_3D(
-                win_width, win_height, field_dim, population
+                win_width, win_height, field_dim, population, rules
             )
             self._rotate = True
 
@@ -50,7 +52,7 @@ class Simulation():
 
             self._universe.calculate_new_generation()
 
-            self._clock.tick(5)
+            self._clock.tick(10)
             self._screen.fill(Color.DARKGREY.value)
 
             self._universe.transform_vectors(self._rotation_angle)
@@ -102,9 +104,19 @@ def parse_args():
         '--population',
         '-p',
         type=int,
-        help='Initial population in %',
+        help='Initial population in percent',
         default='50',
         action='store'
+    )
+    parser.add_argument(
+        '--rules',
+        '-r',
+        type=str,
+        help="""
+            Ruleset after which a cells\' faith is decided; default values are 2333 for 2D and 5766 for 3D
+        """,
+        action='store',
+        required=False
     )
 
     args = vars(parser.parse_args())
@@ -113,6 +125,18 @@ def parse_args():
     args['win_width'] = int(win_size[0])
     args['win_height'] = int(win_size[1])
 
+    if args['rules'] is None:
+        if args['simulation'] == '2D':
+            args['rules'] = [2, 3, 3, 3]
+        elif args['simulation'] == '3D':
+            args['rules'] = [5, 7, 6, 6]
+    else:
+        if len(args['rules']) != 4:
+            raise ValueError(
+                'Ruleset has to be of length 4 and can only contain digits (e.g. 2333, 5766'
+            )
+        args['rules'] = [int(digit) for digit in args['rules']]
+
     return args
 
 
@@ -120,7 +144,7 @@ def _main():
     args = parse_args()
     simulation = Simulation(
         args['simulation'], args['win_width'], args['win_height'], args['dim'],
-        args['population']
+        args['population'], args['rules']
     )
     simulation.run()
 
